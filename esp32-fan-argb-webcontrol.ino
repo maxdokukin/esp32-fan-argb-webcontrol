@@ -12,7 +12,7 @@ const char* password = "DecoratingLandsFace";
 static constexpr int FAN_PWM_PIN    = 6;    // GPIO 6 for PWM control
 static constexpr int FAN_TACH_PIN   = 5;    // GPIO 5 for tachometer input
 static constexpr int LED_STRIP_PIN  = 9;    // GPIO 9 for LED strip
-static constexpr int NUM_LEDS       = 10;
+static constexpr int NUM_LEDS       = 12;
 static constexpr int PWM_FREQ       = 25000; // 25 kHz PWM frequency
 static constexpr int PWM_RES_BITS   = 8;     // 8-bit PWM resolution
 
