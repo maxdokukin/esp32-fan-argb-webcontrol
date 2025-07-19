@@ -9,11 +9,12 @@ const char* ssid     = "The Grad Resident";
 const char* password = "DecoratingLandsFace";
 
 // ==== Pin & PWM Definitions ==== //
-static constexpr int FAN_PWM_PIN    =  3;    // GPIO 3
-static constexpr int LED_STRIP_PIN  =  2;    // GPIO 2
+static constexpr int FAN_PWM_PIN    =  6;    // GPIO 3 for PWM control
+static constexpr int FAN_TACH_PIN   =  5;    // GPIO 4 for tachometer input
+static constexpr int LED_STRIP_PIN  =  9;    // GPIO 2 for LED strip
 static constexpr int NUM_LEDS       =  10;
-static constexpr int PWM_FREQ       = 25000; // 25 kHz
-static constexpr int PWM_RES_BITS   =     8; // 8‑bit resolution
+static constexpr int PWM_FREQ       = 25000; // 25 kHz PWM frequency
+static constexpr int PWM_RES_BITS   =     8; // 8-bit PWM resolution
 
 WebServer        server(80);
 Adafruit_NeoPixel strip(NUM_LEDS, LED_STRIP_PIN, NEO_GRB + NEO_KHZ800);
@@ -24,6 +25,11 @@ uint8_t fanMaxPWM   = 255;   // calibrated maximum
 uint8_t rawFanPWM   =   0;   // for raw PWM slider
 uint8_t fanSpeed    =   0;   // last mapped speed (0–255)
 uint32_t ledColor   = 0xFFFFFF;
+
+// ==== Tachometer Variables ==== //
+volatile uint16_t tachPulseCount = 0;  // counts pulses in ISR
+uint16_t fanRPM                = 0;  // last calculated RPM
+unsigned long lastRPMTime      = 0;  // last time RPM was updated
 
 // ==== Main Control Page ==== //
 const char MAIN_HTML[] PROGMEM = R"rawliteral(
@@ -47,6 +53,9 @@ const char MAIN_HTML[] PROGMEM = R"rawliteral(
     <input type="range" id="fanRange" class="slider" min="0" max="100" value="0"
            oninput="updateFan(this.value)">
   </div>
+  <div style="margin-top:20px;">
+    <label>Fan RPM: <span id="rpmval">0</span></label>
+  </div>
   <div style="margin-top:30px;">
     <label for="colorPicker">LED Color:</label><br>
     <input type="color" id="colorPicker" class="colorpicker" value="#ffffff"
@@ -64,6 +73,14 @@ function updateColor(col) {
   const hex = col.substring(1);
   fetch(`/color?value=${hex}`);
 }
+// periodically fetch the actual RPM
+setInterval(() => {
+  fetch('/rpm')
+    .then(res => res.text())
+    .then(val => {
+      document.getElementById('rpmval').innerText = val;
+    });
+}, 1000);
 </script>
 </body>
 </html>
@@ -126,19 +143,16 @@ function updateRaw(v) {
 void handleRoot() {
   server.send_P(200, "text/html", MAIN_HTML);
 }
-
 void handleFan() {
   if (!server.hasArg("value")) {
     server.send(400, "text/plain", "Missing value");
     return;
   }
   int pct = server.arg("value").toInt();
-  // map 0–100% into calibrated range
   fanSpeed = map(pct, 0, 100, fanMinPWM, fanMaxPWM);
   ledcWrite(FAN_PWM_PIN, fanSpeed);
   server.send(200, "text/plain", "OK");
 }
-
 void handleColor() {
   if (!server.hasArg("value")) {
     server.send(400, "text/plain", "Missing value");
@@ -153,7 +167,6 @@ void handleColor() {
   strip.show();
   server.send(200, "text/plain", "OK");
 }
-
 void handleCalibrate() {
   String page = FPSTR(CAL_HTML);
   page.replace("%MIN%", String(fanMinPWM));
@@ -161,7 +174,6 @@ void handleCalibrate() {
   page.replace("%RAW%", String(rawFanPWM));
   server.send(200, "text/html", page);
 }
-
 void handleSetMin() {
   if (server.hasArg("value")) {
     fanMinPWM = constrain(server.arg("value").toInt(), 0, 255);
@@ -170,7 +182,6 @@ void handleSetMin() {
     server.send(400, "text/plain", "Missing value");
   }
 }
-
 void handleSetMax() {
   if (server.hasArg("value")) {
     fanMaxPWM = constrain(server.arg("value").toInt(), 0, 255);
@@ -179,7 +190,6 @@ void handleSetMax() {
     server.send(400, "text/plain", "Missing value");
   }
 }
-
 void handleSetRaw() {
   if (server.hasArg("value")) {
     rawFanPWM = constrain(server.arg("value").toInt(), 0, 255);
@@ -188,6 +198,16 @@ void handleSetRaw() {
   } else {
     server.send(400, "text/plain", "Missing value");
   }
+}
+
+// Tachometer ISR
+void IRAM_ATTR onTachPulse() {
+  tachPulseCount++;
+}
+
+// Handler for RPM
+void handleRPM() {
+  server.send(200, "text/plain", String(fanRPM));
 }
 
 // ==== Setup & Loop ==== //
@@ -204,9 +224,13 @@ void setup() {
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
 
-  // configure PWM for fan (core 3.x API)
+  // configure PWM for fan
   ledcAttach(FAN_PWM_PIN, PWM_FREQ, PWM_RES_BITS);
   ledcWrite(FAN_PWM_PIN, fanSpeed);
+
+  // configure tachometer input
+  pinMode(FAN_TACH_PIN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(FAN_TACH_PIN), onTachPulse, FALLING);
 
   // initialize WS2812 strip
   strip.begin();
@@ -220,9 +244,19 @@ void setup() {
   server.on("/setMin",   handleSetMin);
   server.on("/setMax",   handleSetMax);
   server.on("/setRaw",   handleSetRaw);
+  server.on("/rpm",      handleRPM);
   server.begin();
 }
 
 void loop() {
+  unsigned long currentMillis = millis();
+  if (currentMillis - lastRPMTime >= 1000) {
+    noInterrupts();
+    uint16_t pulses = tachPulseCount;
+    tachPulseCount = 0;
+    interrupts();
+    fanRPM = pulses * 30; // 2 pulses per revolution
+    lastRPMTime = currentMillis;
+  }
   server.handleClient();
 }
