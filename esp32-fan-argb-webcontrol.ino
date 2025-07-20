@@ -92,93 +92,71 @@ const char MAIN_HTML[] PROGMEM = R"rawliteral(
     box-shadow: 0 0 10px rgba(0,255,65,0.2);
     border-radius: 4px;
   }
-
-  /* group the inputs (slider + color) */
   .control-inputs {
-    display: flex;
-    justify-content: space-around;
-    flex-wrap: wrap;
-    gap: 1em;
-    margin-bottom: 1em;
+    display: flex; justify-content: space-around;
+    flex-wrap: wrap; gap: 1em; margin-bottom: 1em;
   }
   .input-group {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    display: flex; flex-direction: column; align-items: center;
   }
   .input-group label {
     margin-bottom: 0.5em;
   }
   input[type="range"], input[type="color"] {
-    width: 100%;
-    max-width: 200px;
-    display: block;
-    box-sizing: border-box;
-    margin-bottom: 0.5em;
-    background: transparent;
+    width: 100%; max-width: 200px;
+    display: block; box-sizing: border-box;
+    margin-bottom: 0.5em; background: transparent;
   }
-  /* center the thumb on the track */
   input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
-    height: 16px; width: 16px;
-    margin-top: -6px;
-    border-radius: 50%;
-    background: var(--matrix-bright-green);
+    height: 16px; width: 16px; margin-top: -6px;
+    border-radius: 50%; background: var(--matrix-bright-green);
     box-shadow: var(--matrix-glow) var(--matrix-bright-green);
     cursor: pointer;
   }
   input[type="range"]::-webkit-slider-runnable-track {
-    height: 4px;
-    background: var(--matrix-dark-green);
+    height: 4px; background: var(--matrix-dark-green);
   }
   input[type="range"]::-moz-range-thumb {
-    height: 16px; width: 16px;
-    margin-top: -6px;
-    border-radius: 50%;
-    background: var(--matrix-bright-green);
+    height: 16px; width: 16px; margin-top: -6px;
+    border-radius: 50%; background: var(--matrix-bright-green);
     box-shadow: var(--matrix-glow) var(--matrix-bright-green);
     cursor: pointer;
   }
   input[type="color"] {
-    height: 40px;
-    border: 1px solid var(--matrix-bright-green);
+    height: 40px; border: 1px solid var(--matrix-bright-green);
     cursor: pointer;
   }
   input[type="color"]:focus {
-    outline: none;
-    box-shadow: 0 0 10px var(--matrix-bright-green);
+    outline: none; box-shadow: 0 0 10px var(--matrix-bright-green);
   }
-
-  /* divider */
   .divider {
-    border: none;
-    border-top: 1px solid var(--matrix-dark-green);
+    border: none; border-top: 1px solid var(--matrix-dark-green);
     margin: 1em 0;
   }
-
-  /* group the info (speed + RPM) */
   .control-info {
-    display: flex;
-    justify-content: space-around;
-    gap: 1em;
+    display: flex; justify-content: space-around; gap: 1em;
   }
   .control-info label {
     display: block;
   }
 
-  /* RPM CHART */
-  #rpmChart {
+  /* Chart container */
+  #chart-container {
     width: 90%; max-width: 800px; height: 300px;
-    margin: 2em auto;
+    margin: 2em auto; position: relative;
     background: var(--matrix-bg-darker);
     border: 1px solid var(--matrix-bright-green);
     box-shadow: 0 0 10px rgba(0,255,65,0.2);
+    padding: 0 18px;
+  }
+  #rpmChart {
+    width: 100%; height: 100%;
   }
 </style>
-
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head><body>
-<h1>// XeWe LED & FAN CONTROLLER //</h1>
+<h1>// XeWe //<br>// LED & FAN CONTROLLER //</h1>
 
 <div class="control">
   <h2>Fan 1</h2>
@@ -218,7 +196,9 @@ const char MAIN_HTML[] PROGMEM = R"rawliteral(
   </div>
 </div>
 
-<canvas id="rpmChart"></canvas>
+<div id="chart-container">
+  <canvas id="rpmChart"></canvas>
+</div>
 
 <script>
 document.addEventListener('DOMContentLoaded',()=>{
@@ -234,75 +214,64 @@ document.addEventListener('DOMContentLoaded',()=>{
       data2  = Array(maxPts).fill(0);
 
   const chart = new Chart(ctx, {
-    type:'line',
-    data:{
+    type: 'line',
+    data: {
       labels,
-      datasets:[
-        {label:'Fan 1 RPM', data:data1, borderColor:c1.value, fill:false},
-        {label:'Fan 2 RPM', data:data2, borderColor:c2.value, fill:false},
+      datasets: [
+        { label: 'Fan 1 RPM', data: data1, borderColor: c1.value, fill: false },
+        { label: 'Fan 2 RPM', data: data2, borderColor: c2.value, fill: false }
       ]
     },
-    options:{
-      animation:false,
-      scales:{ x:{display:false}, y:{beginAtZero:true} }
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      elements: {
+        line: { tension: 0.4, borderWidth: 2 },
+        point: { radius: 0 }
+      },
+      scales: {
+        x: { display: false },
+        y: { beginAtZero: true }
+      }
     }
   });
 
-  fetch('/initial')
-    .then(resp => resp.json())
-    .then(cfg => {
-      f1.value = cfg.fan1;
-      f2.value = cfg.fan2;
-      c1.value = '#' + cfg.col1.toString(16).padStart(6,'0');
-      c2.value = '#' + cfg.col2.toString(16).padStart(6,'0');
-      document.getElementById('f1val').innerText = f1.value;
-      document.getElementById('f2val').innerText = f2.value;
-      chart.data.datasets[0].borderColor = c1.value;
-      chart.data.datasets[1].borderColor = c2.value;
-      chart.update();
-    });
-
-  f1.oninput = ()=> {
+  fetch('/initial').then(r=>r.json()).then(cfg=>{
+    f1.value = cfg.fan1;
+    f2.value = cfg.fan2;
+    c1.value = '#' + cfg.col1.toString(16).padStart(6,'0');
+    c2.value = '#' + cfg.col2.toString(16).padStart(6,'0');
     document.getElementById('f1val').innerText = f1.value;
-    fetch('/fan1?value=' + f1.value);
-  };
-  f2.oninput = ()=> {
     document.getElementById('f2val').innerText = f2.value;
-    fetch('/fan2?value=' + f2.value);
-  };
-
-  c1.onchange = ()=> {
-    fetch('/color1?value=' + c1.value.substring(1));
     chart.data.datasets[0].borderColor = c1.value;
-    chart.update();
-  };
-  c2.onchange = ()=> {
-    fetch('/color2?value=' + c2.value.substring(1));
     chart.data.datasets[1].borderColor = c2.value;
     chart.update();
-  };
+  });
+
+  f1.oninput = ()=>{ document.getElementById('f1val').innerText = f1.value; fetch('/fan1?value='+f1.value); };
+  f2.oninput = ()=>{ document.getElementById('f2val').innerText = f2.value; fetch('/fan2?value='+f2.value); };
+  c1.onchange = ()=>{ fetch('/color1?value='+c1.value.substring(1)); chart.data.datasets[0].borderColor = c1.value; chart.update(); };
+  c2.onchange = ()=>{ fetch('/color2?value='+c2.value.substring(1)); chart.data.datasets[1].borderColor = c2.value; chart.update(); };
 
   setInterval(()=>{
     const now = new Date().toLocaleTimeString();
-    Promise.all([
-      fetch('/rpm1').then(r=>r.text()),
-      fetch('/rpm2').then(r=>r.text())
-    ]).then(vals => {
-      const v1 = parseInt(vals[0]),
-            v2 = parseInt(vals[1]);
-      labels.push(now); data1.push(v1); data2.push(v2);
-      if(labels.length>maxPts){
-        labels.shift(); data1.shift(); data2.shift();
-      }
-      chart.update();
-      document.getElementById('r1').innerText = v1;
-      document.getElementById('r2').innerText = v2;
-    });
-  }, 1000);
+    Promise.all([ fetch('/rpm1').then(r=>r.text()), fetch('/rpm2').then(r=>r.text()) ])
+      .then(vals=>{
+        const v1 = parseInt(vals[0]), v2 = parseInt(vals[1]);
+        labels.push(now); data1.push(v1); data2.push(v2);
+        if(labels.length>maxPts){ labels.shift(); data1.shift(); data2.shift(); }
+        chart.update();
+        document.getElementById('r1').innerText = v1;
+        document.getElementById('r2').innerText = v2;
+      });
+  },1000);
 });
 </script>
 </body></html>
 )rawliteral";
+
+
 
 // ==== ISRs ==== //
 void IRAM_ATTR tachISR1() { tachCount1++; }
