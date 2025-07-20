@@ -117,22 +117,36 @@ const char MAIN_HTML[] PROGMEM = R"rawliteral(
     margin-bottom: 0.5em;
     background: transparent;
   }
+  /* center the thumb on the track */
   input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
-    height:16px; width:16px; border-radius:50%;
+    height: 16px; width: 16px;
+    margin-top: -6px;
+    border-radius: 50%;
     background: var(--matrix-bright-green);
     box-shadow: var(--matrix-glow) var(--matrix-bright-green);
     cursor: pointer;
   }
   input[type="range"]::-webkit-slider-runnable-track {
-    height:4px; background: var(--matrix-dark-green);
+    height: 4px;
+    background: var(--matrix-dark-green);
+  }
+  input[type="range"]::-moz-range-thumb {
+    height: 16px; width: 16px;
+    margin-top: -6px;
+    border-radius: 50%;
+    background: var(--matrix-bright-green);
+    box-shadow: var(--matrix-glow) var(--matrix-bright-green);
+    cursor: pointer;
   }
   input[type="color"] {
-    height:40px; border:1px solid var(--matrix-bright-green);
+    height: 40px;
+    border: 1px solid var(--matrix-bright-green);
     cursor: pointer;
   }
   input[type="color"]:focus {
-    outline:none; box-shadow: 0 0 10px var(--matrix-bright-green);
+    outline: none;
+    box-shadow: 0 0 10px var(--matrix-bright-green);
   }
 
   /* divider */
@@ -154,17 +168,17 @@ const char MAIN_HTML[] PROGMEM = R"rawliteral(
 
   /* RPM CHART */
   #rpmChart {
-    width:90%; max-width:800px; height:300px;
-    margin:2em auto;
+    width: 90%; max-width: 800px; height: 300px;
+    margin: 2em auto;
     background: var(--matrix-bg-darker);
-    border:1px solid var(--matrix-bright-green);
-    box-shadow:0 0 10px rgba(0,255,65,0.2);
+    border: 1px solid var(--matrix-bright-green);
+    box-shadow: 0 0 10px rgba(0,255,65,0.2);
   }
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head><body>
-<h1>// XeWe //<BR> // LED & FAN CONTROLLER //</h1>
+<h1>// XeWe LED & FAN CONTROLLER //</h1>
 
 <div class="control">
   <h2>Fan 1</h2>
