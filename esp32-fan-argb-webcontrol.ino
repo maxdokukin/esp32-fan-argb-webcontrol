@@ -22,7 +22,7 @@ static constexpr int NUM_LEDS = 12;
 // ==== PWM Settings ==== //
 static constexpr int    PWM_FREQ     = 25000; // 25 kHz
 static constexpr int    PWM_RES_BITS = 8;     // 8‑bit resolution
-static constexpr uint8_t FAN_MIN_PWM = 30;    // 15% duty floor
+static constexpr uint8_t FAN_MIN_PWM = 50;    // 15% duty floor
 
 // ==== Tachometer & RPM Settings ==== //
 static constexpr unsigned long TACH_SAMPLE_TIME_MS = 1000;   // sample period (ms)
