@@ -9,32 +9,33 @@ const char* ssid     = "The Grad Resident";
 const char* password = "DecoratingLandsFace";
 
 // ==== Pin & PWM Definitions ==== //
-static constexpr int FAN1_PWM_PIN    = 0;    // GPIO for Fan 1 PWM control
-static constexpr int FAN2_PWM_PIN    = 1;    // GPIO for Fan 2 PWM control
-static constexpr int FAN1_TACH_PIN   = 3;    // GPIO for Fan 1 tachometer input
-static constexpr int FAN2_TACH_PIN   = 4;    // GPIO for Fan 2 tachometer input
-static constexpr int FAN1_LED_PIN    = 6;    // GPIO for Fan 1 LED strip
-static constexpr int FAN2_LED_PIN    = 7;   // GPIO for Fan 2 LED strip
+static constexpr int FAN1_PWM_PIN    = 0;  // GPIO for Fan 1 PWM control
+static constexpr int FAN2_PWM_PIN    = 1;  // GPIO for Fan 2 PWM control
+static constexpr int FAN1_TACH_PIN   = 3;  // GPIO for Fan 1 tachometer input
+static constexpr int FAN2_TACH_PIN   = 4;  // GPIO for Fan 2 tachometer input
+static constexpr int FAN1_LED_PIN    = 6;  // GPIO for Fan 1 NeoPixel strip
+static constexpr int FAN2_LED_PIN    = 7;  // GPIO for Fan 2 NeoPixel strip
 
 // ==== Constants ==== //
-static constexpr int FAN_MIN_PWM          = 20;       // 15% duty
-static constexpr int NUM_LEDS             = 12;       // LEDs per strip
-static constexpr int PWM_FREQ             = 25000;    // PWM frequency
-static constexpr int PWM_RES_BITS         = 8;        // PWM resolution
-static constexpr unsigned long TACH_DEBOUNCE_US = 2000; // 2 ms debounce
+static constexpr int    FAN_MIN_PWM           = 20;       // 15% duty
+static constexpr int    NUM_LEDS              = 12;       // LEDs per strip
+static constexpr int    PWM_FREQ              = 25000;    // PWM frequency
+static constexpr int    PWM_RES_BITS          = 8;        // PWM resolution
+static constexpr unsigned long TACH_DEBOUNCE_US       = 2000; // 2 ms debounce
 
-WebServer server(80);
+// ==== Global Objects ==== //
+WebServer        server(80);
 Adafruit_NeoPixel strip1(NUM_LEDS, FAN1_LED_PIN, NEO_GRB + NEO_KHZ800);
 Adafruit_NeoPixel strip2(NUM_LEDS, FAN2_LED_PIN, NEO_GRB + NEO_KHZ800);
 
-// ==== State ==== //
-uint8_t fan1Speed = 0, fan2Speed = 0;
+// ==== State Variables ==== //
+uint8_t  fan1Speed = 0, fan2Speed = 0;
 uint32_t ledColor1 = 0xFFFFFF, ledColor2 = 0xFFFFFF;
 
 // ==== Tachometer & RPM ==== //
 volatile unsigned long lastTach1 = 0, lastTach2 = 0;
-volatile unsigned int rawRPM1 = 0, rawRPM2 = 0;
-uint16_t tachCount1 = 0, tachCount2 = 0;
+volatile unsigned int  tachCount1 = 0, tachCount2 = 0;
+uint16_t rawRPM1 = 0, rawRPM2 = 0;
 
 // ==== HTML Interface ==== //
 const char MAIN_HTML[] PROGMEM = R"rawliteral(
@@ -74,7 +75,6 @@ const char MAIN_HTML[] PROGMEM = R"rawliteral(
   <canvas id="rpmChart"></canvas>
   <script>
     document.addEventListener('DOMContentLoaded', () => {
-      // Bind controls
       document.getElementById('f1').oninput = function() {
         document.getElementById('f1val').innerText = this.value;
         fetch('/fan1?value=' + this.value);
@@ -83,31 +83,37 @@ const char MAIN_HTML[] PROGMEM = R"rawliteral(
         document.getElementById('f2val').innerText = this.value;
         fetch('/fan2?value=' + this.value);
       };
-      document.getElementById('c1').onchange = function() { fetch('/color1?value=' + this.value.substring(1)); };
-      document.getElementById('c2').onchange = function() { fetch('/color2?value=' + this.value.substring(1)); };
+      document.getElementById('c1').onchange = function() {
+        fetch('/color1?value=' + this.value.substring(1));
+      };
+      document.getElementById('c2').onchange = function() {
+        fetch('/color2?value=' + this.value.substring(1));
+      };
 
-      // Setup Chart.js time series
       const ctx = document.getElementById('rpmChart').getContext('2d');
       const maxPoints = 60;
       let labels = Array(maxPoints).fill('');
-      let data1 = Array(maxPoints).fill(0);
-      let data2 = Array(maxPoints).fill(0);
+      let data1   = Array(maxPoints).fill(0);
+      let data2   = Array(maxPoints).fill(0);
+
       const chart = new Chart(ctx, {
         type: 'line',
         data: {
           labels: labels,
           datasets: [
-            { label: 'Fan 1 RPM', data: data1, borderColor: 'red', fill: false },
+            { label: 'Fan 1 RPM', data: data1, borderColor: 'red',  fill: false },
             { label: 'Fan 2 RPM', data: data2, borderColor: 'blue', fill: false }
           ]
         },
         options: {
           animation: false,
-          scales: { x: { display: false }, y: { beginAtZero: true } }
+          scales: {
+            x: { display: false },
+            y: { beginAtZero: true }
+          }
         }
       });
 
-      // Update chart every second
       setInterval(() => {
         const now = new Date().toLocaleTimeString();
         Promise.all([
@@ -115,8 +121,14 @@ const char MAIN_HTML[] PROGMEM = R"rawliteral(
           fetch('/rpm2').then(r => r.text())
         ]).then(vals => {
           const v1 = parseInt(vals[0]), v2 = parseInt(vals[1]);
-          labels.push(now); data1.push(v1); data2.push(v2);
-          if (labels.length > maxPoints) { labels.shift(); data1.shift(); data2.shift(); }
+          labels.push(now);
+          data1.push(v1);
+          data2.push(v2);
+          if (labels.length > maxPoints) {
+            labels.shift();
+            data1.shift();
+            data2.shift();
+          }
           chart.update();
           document.getElementById('r1').innerText = v1;
           document.getElementById('r2').innerText = v2;
@@ -128,7 +140,7 @@ const char MAIN_HTML[] PROGMEM = R"rawliteral(
 </html>
 )rawliteral";
 
-// ISRs: count pulses
+// ==== ISRs: Count Pulses ==== //
 void IRAM_ATTR onTach1() {
   unsigned long now = micros();
   if (now - lastTach1 > TACH_DEBOUNCE_US) {
@@ -136,6 +148,7 @@ void IRAM_ATTR onTach1() {
     tachCount1++;
   }
 }
+
 void IRAM_ATTR onTach2() {
   unsigned long now = micros();
   if (now - lastTach2 > TACH_DEBOUNCE_US) {
@@ -144,55 +157,85 @@ void IRAM_ATTR onTach2() {
   }
 }
 
-// HTTP Handlers
-void handleRoot()  { server.send_P(200, "text/html", MAIN_HTML); }
+// ==== HTTP Handlers ==== //
+void handleRoot() {
+  server.send_P(200, "text/html", MAIN_HTML);
+}
+
 void handleFan1() {
-  int val = server.arg("value").toInt();    // 0–100
+  int val = server.arg("value").toInt();  // 0–100
   uint8_t duty;
   if (val == 0) {
     duty = 0;
   } else {
-    duty = map(val, 1, 100, FAN_MIN_PWM, (1<<PWM_RES_BITS)-1);
+    duty = map(val, 1, 100, FAN_MIN_PWM, (1 << PWM_RES_BITS) - 1);
   }
   ledcWrite(FAN1_PWM_PIN, duty);
   server.send(200, "text/plain", "OK");
 }
 
 void handleFan2() {
-  int val = server.arg("value").toInt();    // 0–100
+  int val = server.arg("value").toInt();  // 0–100
   uint8_t duty;
   if (val == 0) {
     duty = 0;
   } else {
-    duty = map(val, 1, 100, FAN_MIN_PWM, (1<<PWM_RES_BITS)-1);
+    duty = map(val, 1, 100, FAN_MIN_PWM, (1 << PWM_RES_BITS) - 1);
   }
   ledcWrite(FAN2_PWM_PIN, duty);
   server.send(200, "text/plain", "OK");
 }
 
-void handleColor1(){ uint32_t c = strtoul(server.arg("value").c_str(), nullptr, 16); ledColor1 = c; for(int i=0;i<NUM_LEDS;i++) strip1.setPixelColor(i, ledColor1); strip1.show(); server.send(200, "text/plain", "OK"); }
-void handleColor2(){ uint32_t c = strtoul(server.arg("value").c_str(), nullptr, 16); ledColor2 = c; for(int i=0;i<NUM_LEDS;i++) strip2.setPixelColor(i, ledColor2); strip2.show(); server.send(200, "text/plain", "OK"); }
+void handleColor1() {
+  uint32_t c = strtoul(server.arg("value").c_str(), nullptr, 16);
+  ledColor1 = c;
+  for (int i = 0; i < NUM_LEDS; i++) {
+    strip1.setPixelColor(i, ledColor1);
+  }
+  strip1.show();
+  server.send(200, "text/plain", "OK");
+}
+
+void handleColor2() {
+  uint32_t c = strtoul(server.arg("value").c_str(), nullptr, 16);
+  ledColor2 = c;
+  for (int i = 0; i < NUM_LEDS; i++) {
+    strip2.setPixelColor(i, ledColor2);
+  }
+  strip2.show();
+  server.send(200, "text/plain", "OK");
+}
+
 void handleRPM1() {
-  uint16_t count;
-  noInterrupts(); count = tachCount1; tachCount1 = 0; interrupts();
+  noInterrupts();
+  uint16_t count = tachCount1;
+  tachCount1 = 0;
+  interrupts();
   rawRPM1 = count * 30;
   server.send(200, "text/plain", String(rawRPM1));
 }
+
 void handleRPM2() {
-  uint16_t count;
-  noInterrupts(); count = tachCount2; tachCount2 = 0; interrupts();
+  noInterrupts();
+  uint16_t count = tachCount2;
+  tachCount2 = 0;
+  interrupts();
   rawRPM2 = count * 30;
   server.send(200, "text/plain", String(rawRPM2));
 }
 
+// ==== Setup & Loop ==== //
 void setup() {
   Serial.begin(115200);
+
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) delay(500);
-  Serial.println(); Serial.print("Connected! IP address: "); Serial.println(WiFi.localIP());
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+  }
+  Serial.printf("Connected! IP address: %s\n", WiFi.localIP().toString().c_str());
 
-  // PWM
+  // PWM setup
   ledcAttach(FAN1_PWM_PIN, PWM_FREQ, PWM_RES_BITS);
   ledcAttach(FAN2_PWM_PIN, PWM_FREQ, PWM_RES_BITS);
 
@@ -203,13 +246,15 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(FAN2_TACH_PIN), onTach2, FALLING);
 
   // LEDs
-  strip1.begin(); strip1.show();
-  strip2.begin(); strip2.show();
+  strip1.begin();
+  strip1.show();
+  strip2.begin();
+  strip2.show();
 
-  // HTTP
-  server.on("/",     handleRoot);
-  server.on("/fan1", handleFan1);
-  server.on("/fan2", handleFan2);
+  // HTTP routes
+  server.on("/",      handleRoot);
+  server.on("/fan1",  handleFan1);
+  server.on("/fan2",  handleFan2);
   server.on("/color1", handleColor1);
   server.on("/color2", handleColor2);
   server.on("/rpm1",  handleRPM1);
