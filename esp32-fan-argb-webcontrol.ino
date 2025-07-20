@@ -9,12 +9,12 @@ const char* ssid     = "The Grad Resident";
 const char* password = "DecoratingLandsFace";
 
 // ==== Pin & PWM Definitions ==== //
-static constexpr int FAN1_TACH_PIN   = 5;    // GPIO for Fan 1 tachometer input
-static constexpr int FAN1_PWM_PIN    = 6;    // GPIO for Fan 1 PWM control
-static constexpr int FAN2_TACH_PIN   = 7;    // GPIO for Fan 2 tachometer input
-static constexpr int FAN2_PWM_PIN    = 8;    // GPIO for Fan 2 PWM control
-static constexpr int FAN1_LED_PIN    = 9;    // GPIO for Fan 1 LED strip
-static constexpr int FAN2_LED_PIN    = 10;   // GPIO for Fan 2 LED strip
+static constexpr int FAN1_PWM_PIN    = 0;    // GPIO for Fan 1 PWM control
+static constexpr int FAN2_PWM_PIN    = 1;    // GPIO for Fan 2 PWM control
+static constexpr int FAN1_TACH_PIN   = 3;    // GPIO for Fan 1 tachometer input
+static constexpr int FAN2_TACH_PIN   = 4;    // GPIO for Fan 2 tachometer input
+static constexpr int FAN1_LED_PIN    = 6;    // GPIO for Fan 1 LED strip
+static constexpr int FAN2_LED_PIN    = 7;   // GPIO for Fan 2 LED strip
 
 // ==== Constants ==== //
 static constexpr int FAN_MIN_PWM          = 20;       // 15% duty
@@ -146,8 +146,30 @@ void IRAM_ATTR onTach2() {
 
 // HTTP Handlers
 void handleRoot()  { server.send_P(200, "text/html", MAIN_HTML); }
-void handleFan1()  { fan1Speed = map(server.arg("value").toInt(), 0, 100, FAN_MIN_PWM, (1<<PWM_RES_BITS)-1); ledcWrite(FAN1_PWM_PIN, fan1Speed); server.send(200, "text/plain", "OK"); }
-void handleFan2()  { fan2Speed = map(server.arg("value").toInt(), 0, 100, FAN_MIN_PWM, (1<<PWM_RES_BITS)-1); ledcWrite(FAN2_PWM_PIN, fan2Speed); server.send(200, "text/plain", "OK"); }
+void handleFan1() {
+  int val = server.arg("value").toInt();    // 0–100
+  uint8_t duty;
+  if (val == 0) {
+    duty = 0;
+  } else {
+    duty = map(val, 1, 100, FAN_MIN_PWM, (1<<PWM_RES_BITS)-1);
+  }
+  ledcWrite(FAN1_PWM_PIN, duty);
+  server.send(200, "text/plain", "OK");
+}
+
+void handleFan2() {
+  int val = server.arg("value").toInt();    // 0–100
+  uint8_t duty;
+  if (val == 0) {
+    duty = 0;
+  } else {
+    duty = map(val, 1, 100, FAN_MIN_PWM, (1<<PWM_RES_BITS)-1);
+  }
+  ledcWrite(FAN2_PWM_PIN, duty);
+  server.send(200, "text/plain", "OK");
+}
+
 void handleColor1(){ uint32_t c = strtoul(server.arg("value").c_str(), nullptr, 16); ledColor1 = c; for(int i=0;i<NUM_LEDS;i++) strip1.setPixelColor(i, ledColor1); strip1.show(); server.send(200, "text/plain", "OK"); }
 void handleColor2(){ uint32_t c = strtoul(server.arg("value").c_str(), nullptr, 16); ledColor2 = c; for(int i=0;i<NUM_LEDS;i++) strip2.setPixelColor(i, ledColor2); strip2.show(); server.send(200, "text/plain", "OK"); }
 void handleRPM1() {
