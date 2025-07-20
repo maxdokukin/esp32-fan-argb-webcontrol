@@ -1,29 +1,36 @@
-ESP 32 C3 ARGB PC Cooling Fan Controller
+ESP32-C3 ARGB PC Cooling Fan Controller
 
-Warning: the code here is AI generated, it might not be to the best stanndarts of coding.
+**Warning:** The code here is AI-generated; it might not adhere to the best standards of coding.
 
-Purpose:
-to control two argb fans via the web interface using esp 32 c3
+---
 
-implementation:
-code below allows to access the esp 32 web server (ip address printed in the serial port)
-the interface has sliders to control the fans speeds and rgb color picker s for the fan rgb colors
-desiign is inspired by the matrix
+**Purpose**
+To control two ARGB fans via a web interface using the ESP32-C3.
 
-under the hood:
-fans are controlled by 25khz pwm
-rpm is measured through interrupts
-led is controlled as addressable led via with adafruit lib
+**Implementation**
+The code below allows access to the ESP32 web server (the IP address is printed to the serial port). The interface provides sliders to control fan speeds and RGB color pickers for the fan LEDs. The design is inspired by *The Matrix*.
 
-learnings:
-esp32 pins are highly sensitive to pwm, and interrupts. pins must be chosen wisely.
-the current pins configuration causes incorrect rpm readings when the esp32 board is attached to PC with serial port
-reading tachometer is very tricky and harder than it sounds
-power supply ius extremely important here. one usb port will not handle all the current. i am using two usb ports, one for esp and rgb, two for fans with dc-dc booster to 12v
-three ways to go around it: use power supply only, use usbc with power delivery, use two usb a ports
-use cvonnectors to attach fans; 4 pin for the motor and 3 pin for the led. they will make the hardware refurbrishments and transitions way easier
+**Under the Hood**
 
-future vectors:
-find pins that provide reliable rpm readings
-integrate led effects with the XeWe LED OS
-add thermo sensor support 
+* Fans are driven by 25 kHz PWM.
+* RPM is measured via interrupts.
+* LEDs are controlled as addressable LEDs using the Adafruit library.
+
+**Learnings**
+
+* ESP32 pins are highly sensitive to PWM and interrupts; choose them wisely.
+* The current pin configuration yields incorrect RPM readings when the ESP32 is connected to a PC over serial.
+* Reading the tachometer signal is very tricky—harder than it sounds.
+* A robust power supply is critical. One USB port can’t handle all the current. I’m using two USB ports: one for the ESP32 and RGB LEDs, and another (with a DC–DC booster) for the 12 V fans.
+* Three power options:
+
+  1. Use a dedicated power supply
+  2. Use USB-C with Power Delivery
+  3. Use two USB-A ports
+* Use 4-pin connectors for the motor and 3-pin connectors for the LEDs to simplify hardware changes.
+
+**Future Work**
+
+* Identify pins that provide reliable RPM readings.
+* Integrate LED effects with the XeWe LED OS.
+* Add support for a thermal sensor.
