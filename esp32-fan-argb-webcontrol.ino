@@ -66,11 +66,11 @@ const char MAIN_HTML[] PROGMEM = R"rawliteral(
     --matrix-font: 'Courier New', Courier, monospace;
   }
 
-  /* --- GLOBAL STYLES --- */
+  /* --- GLOBAL --- */
   body {
     font-family: var(--matrix-font);
     margin: 2em;
-    background-color: var(--matrix-bg-dark);
+    background: var(--matrix-bg-dark);
     color: var(--matrix-text-green);
     text-shadow: 0 0 1px var(--matrix-text-green);
     text-align: center;
@@ -83,88 +83,125 @@ const char MAIN_HTML[] PROGMEM = R"rawliteral(
     margin-bottom: 0.5em;
   }
 
-  /* --- CONTROL PANELS (match graph width) --- */
+  /* --- CONTROL PANEL --- */
   .control {
-    width: 90%;
-    max-width: 800px;
-    background-color: var(--matrix-bg-darker);
+    width: 90%; max-width: 800px;
+    background: var(--matrix-bg-darker);
     border: 1px solid var(--matrix-bright-green);
-    padding: 1em;
-    margin: 1.5em auto;
+    padding: 1em; margin: 1.5em auto;
     box-shadow: 0 0 10px rgba(0,255,65,0.2);
     border-radius: 4px;
   }
-  .control label {
-    display: block;
-    margin: 0.5em 0;
+
+  /* group the inputs (slider + color) */
+  .control-inputs {
+    display: flex;
+    justify-content: space-around;
+    flex-wrap: wrap;
+    gap: 1em;
+    margin-bottom: 1em;
   }
-
-  /* --- SLIDERS (full width) --- */
-    input[type="range"] {
-      -webkit-appearance: none;
-      display: block;
-      width: 100%;
-      box-sizing: border-box;
-      margin: 0.5em 0;
-      background: transparent;
-    }
-    input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      height: 16px;
-      width: 16px;
-      border-radius: 50%;
-      background: var(--matrix-bright-green);
-      cursor: pointer;
-      box-shadow: var(--matrix-glow) var(--matrix-bright-green);
-    }
-    input[type="range"]::-webkit-slider-runnable-track {
-      height: 4px;
-      background: var(--matrix-dark-green);
-    }
-
-
-  /* --- COLOR PICKERS --- */
-  input[type="color"] {
-    width: 80px; height: 40px;
-    border: 1px solid var(--matrix-bright-green);
+  .input-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .input-group label {
+    margin-bottom: 0.5em;
+  }
+  input[type="range"], input[type="color"] {
+    width: 100%;
+    max-width: 200px;
+    display: block;
+    box-sizing: border-box;
+    margin-bottom: 0.5em;
     background: transparent;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    height:16px; width:16px; border-radius:50%;
+    background: var(--matrix-bright-green);
+    box-shadow: var(--matrix-glow) var(--matrix-bright-green);
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-runnable-track {
+    height:4px; background: var(--matrix-dark-green);
+  }
+  input[type="color"] {
+    height:40px; border:1px solid var(--matrix-bright-green);
     cursor: pointer;
   }
   input[type="color"]:focus {
-    outline: none;
-    box-shadow: 0 0 10px var(--matrix-bright-green);
+    outline:none; box-shadow: 0 0 10px var(--matrix-bright-green);
   }
 
-  /* --- RPM CHART --- */
+  /* divider */
+  .divider {
+    border: none;
+    border-top: 1px solid var(--matrix-dark-green);
+    margin: 1em 0;
+  }
+
+  /* group the info (speed + RPM) */
+  .control-info {
+    display: flex;
+    justify-content: space-around;
+    gap: 1em;
+  }
+  .control-info label {
+    display: block;
+  }
+
+  /* RPM CHART */
   #rpmChart {
-    width: 90%;
-    max-width: 800px;
-    height: 300px;
-    margin: 2em auto;
-    background-color: var(--matrix-bg-darker);
-    border: 1px solid var(--matrix-bright-green);
-    box-shadow: 0 0 10px rgba(0,255,65,0.2);
+    width:90%; max-width:800px; height:300px;
+    margin:2em auto;
+    background: var(--matrix-bg-darker);
+    border:1px solid var(--matrix-bright-green);
+    box-shadow:0 0 10px rgba(0,255,65,0.2);
   }
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head><body>
-<h1>// XeWe LED & FAN CONTROLLER //</h1>
+<h1>// XeWe //<BR> // LED & FAN CONTROLLER //</h1>
 
-<div class="control"><h2>Fan 1</h2>
-  <label>Speed: <span id="f1val">0</span>%</label>
-  <input id="f1" type="range" min="0" max="100" value="0">
-  <label>RPM: <span id="r1">0</span></label>
-  <label>LED 1 Color:</label>
-  <input id="c1" type="color" value="#ffffff">
+<div class="control">
+  <h2>Fan 1</h2>
+  <div class="control-inputs">
+    <div class="input-group">
+      <label for="f1">Speed</label>
+      <input id="f1" type="range" min="0" max="100" value="0">
+    </div>
+    <div class="input-group">
+      <label for="c1">LED Color</label>
+      <input id="c1" type="color" value="#ffffff">
+    </div>
+  </div>
+  <hr class="divider">
+  <div class="control-info">
+    <label>Speed: <span id="f1val">0</span>%</label>
+    <label>RPM: <span id="r1">0</span></label>
+  </div>
 </div>
 
-<div class="control"><h2>Fan 2</h2>
-  <label>Speed: <span id="f2val">0</span>%</label>
-  <input id="f2" type="range" min="0" max="100" value="0">
-  <label>RPM: <span id="r2">0</span></label>
-  <label>LED 2 Color:</label>
-  <input id="c2" type="color" value="#ffffff">
+<div class="control">
+  <h2>Fan 2</h2>
+  <div class="control-inputs">
+    <div class="input-group">
+      <label for="f2">Speed</label>
+      <input id="f2" type="range" min="0" max="100" value="0">
+    </div>
+    <div class="input-group">
+      <label for="c2">LED Color</label>
+      <input id="c2" type="color" value="#ffffff">
+    </div>
+  </div>
+  <hr class="divider">
+  <div class="control-info">
+    <label>Speed: <span id="f2val">0</span>%</label>
+    <label>RPM: <span id="r2">0</span></label>
+  </div>
 </div>
 
 <canvas id="rpmChart"></canvas>
@@ -182,7 +219,6 @@ document.addEventListener('DOMContentLoaded',()=>{
       data1  = Array(maxPts).fill(0),
       data2  = Array(maxPts).fill(0);
 
-  // Initialize chart with placeholder colors (will be overwritten immediately)
   const chart = new Chart(ctx, {
     type:'line',
     data:{
@@ -198,7 +234,6 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
   });
 
-  // Fetch initial speeds/colors and apply
   fetch('/initial')
     .then(resp => resp.json())
     .then(cfg => {
@@ -208,14 +243,11 @@ document.addEventListener('DOMContentLoaded',()=>{
       c2.value = '#' + cfg.col2.toString(16).padStart(6,'0');
       document.getElementById('f1val').innerText = f1.value;
       document.getElementById('f2val').innerText = f2.value;
-
-      // Update chart line colors
       chart.data.datasets[0].borderColor = c1.value;
       chart.data.datasets[1].borderColor = c2.value;
       chart.update();
     });
 
-  // Fan speed handlers remain the same
   f1.oninput = ()=> {
     document.getElementById('f1val').innerText = f1.value;
     fetch('/fan1?value=' + f1.value);
@@ -225,21 +257,17 @@ document.addEventListener('DOMContentLoaded',()=>{
     fetch('/fan2?value=' + f2.value);
   };
 
-  // On color change: update LEDs *and* chart colors
   c1.onchange = ()=> {
-    const col = c1.value.substring(1);
-    fetch('/color1?value=' + col);
+    fetch('/color1?value=' + c1.value.substring(1));
     chart.data.datasets[0].borderColor = c1.value;
     chart.update();
   };
   c2.onchange = ()=> {
-    const col = c2.value.substring(1);
-    fetch('/color2?value=' + col);
+    fetch('/color2?value=' + c2.value.substring(1));
     chart.data.datasets[1].borderColor = c2.value;
     chart.update();
   };
 
-  // RPM polling
   setInterval(()=>{
     const now = new Date().toLocaleTimeString();
     Promise.all([
@@ -259,7 +287,6 @@ document.addEventListener('DOMContentLoaded',()=>{
   }, 1000);
 });
 </script>
-
 </body></html>
 )rawliteral";
 
