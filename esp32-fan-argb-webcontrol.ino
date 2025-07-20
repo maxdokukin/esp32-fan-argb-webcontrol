@@ -65,6 +65,8 @@ const char MAIN_HTML[] PROGMEM = R"rawliteral(
     --matrix-glow: 0 0 3px;
     --matrix-font: 'Courier New', Courier, monospace;
   }
+
+  /* --- GLOBAL STYLES --- */
   body {
     font-family: var(--matrix-font);
     margin: 2em;
@@ -80,12 +82,15 @@ const char MAIN_HTML[] PROGMEM = R"rawliteral(
     text-shadow: var(--matrix-glow) var(--matrix-bright-green);
     margin-bottom: 0.5em;
   }
+
+  /* --- CONTROL PANELS (match graph width) --- */
   .control {
+    width: 90%;
+    max-width: 800px;
     background-color: var(--matrix-bg-darker);
     border: 1px solid var(--matrix-bright-green);
     padding: 1em;
     margin: 1.5em auto;
-    max-width: 90%;
     box-shadow: 0 0 10px rgba(0,255,65,0.2);
     border-radius: 4px;
   }
@@ -93,24 +98,32 @@ const char MAIN_HTML[] PROGMEM = R"rawliteral(
     display: block;
     margin: 0.5em 0;
   }
-  input[type="range"] {
-    -webkit-appearance: none;
-    width: 80%;
-    margin: 0.5em 0;
-    background: transparent;
-  }
-  input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    height: 16px; width: 16px;
-    border-radius: 50%;
-    background: var(--matrix-bright-green);
-    cursor: pointer;
-    box-shadow: var(--matrix-glow) var(--matrix-bright-green);
-  }
-  input[type="range"]::-webkit-slider-runnable-track {
-    height: 4px;
-    background: var(--matrix-dark-green);
-  }
+
+  /* --- SLIDERS (full width) --- */
+    input[type="range"] {
+      -webkit-appearance: none;
+      display: block;
+      width: 100%;
+      box-sizing: border-box;
+      margin: 0.5em 0;
+      background: transparent;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      height: 16px;
+      width: 16px;
+      border-radius: 50%;
+      background: var(--matrix-bright-green);
+      cursor: pointer;
+      box-shadow: var(--matrix-glow) var(--matrix-bright-green);
+    }
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 4px;
+      background: var(--matrix-dark-green);
+    }
+
+
+  /* --- COLOR PICKERS --- */
   input[type="color"] {
     width: 80px; height: 40px;
     border: 1px solid var(--matrix-bright-green);
@@ -121,17 +134,22 @@ const char MAIN_HTML[] PROGMEM = R"rawliteral(
     outline: none;
     box-shadow: 0 0 10px var(--matrix-bright-green);
   }
+
+  /* --- RPM CHART --- */
   #rpmChart {
-    width: 90%; max-width: 800px; height: 300px;
+    width: 90%;
+    max-width: 800px;
+    height: 300px;
     margin: 2em auto;
     background-color: var(--matrix-bg-darker);
     border: 1px solid var(--matrix-bright-green);
     box-shadow: 0 0 10px rgba(0,255,65,0.2);
   }
 </style>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head><body>
-<h1>ESP32 Dual Fan & LED Control</h1>
+<h1>// XeWe LED & FAN CONTROLLER //</h1>
 
 <div class="control"><h2>Fan 1</h2>
   <label>Speed: <span id="f1val">0</span>%</label>
@@ -156,8 +174,31 @@ document.addEventListener('DOMContentLoaded',()=>{
   const f1 = document.getElementById('f1'),
         f2 = document.getElementById('f2'),
         c1 = document.getElementById('c1'),
-        c2 = document.getElementById('c2');
+        c2 = document.getElementById('c2'),
+        ctx = document.getElementById('rpmChart').getContext('2d'),
+        maxPts = 60;
 
+  let labels = Array(maxPts).fill(''),
+      data1  = Array(maxPts).fill(0),
+      data2  = Array(maxPts).fill(0);
+
+  // Initialize chart with placeholder colors (will be overwritten immediately)
+  const chart = new Chart(ctx, {
+    type:'line',
+    data:{
+      labels,
+      datasets:[
+        {label:'Fan 1 RPM', data:data1, borderColor:c1.value, fill:false},
+        {label:'Fan 2 RPM', data:data2, borderColor:c2.value, fill:false},
+      ]
+    },
+    options:{
+      animation:false,
+      scales:{ x:{display:false}, y:{beginAtZero:true} }
+    }
+  });
+
+  // Fetch initial speeds/colors and apply
   fetch('/initial')
     .then(resp => resp.json())
     .then(cfg => {
@@ -167,8 +208,14 @@ document.addEventListener('DOMContentLoaded',()=>{
       c2.value = '#' + cfg.col2.toString(16).padStart(6,'0');
       document.getElementById('f1val').innerText = f1.value;
       document.getElementById('f2val').innerText = f2.value;
+
+      // Update chart line colors
+      chart.data.datasets[0].borderColor = c1.value;
+      chart.data.datasets[1].borderColor = c2.value;
+      chart.update();
     });
 
+  // Fan speed handlers remain the same
   f1.oninput = ()=> {
     document.getElementById('f1val').innerText = f1.value;
     fetch('/fan1?value=' + f1.value);
@@ -177,30 +224,22 @@ document.addEventListener('DOMContentLoaded',()=>{
     document.getElementById('f2val').innerText = f2.value;
     fetch('/fan2?value=' + f2.value);
   };
-  c1.onchange = ()=> fetch('/color1?value=' + c1.value.substring(1));
-  c2.onchange = ()=> fetch('/color2?value=' + c2.value.substring(1));
 
-  const ctx = document.getElementById('rpmChart').getContext('2d'),
-        maxPts = 60;
-  let labels = Array(maxPts).fill(''),
-      data1  = Array(maxPts).fill(0),
-      data2  = Array(maxPts).fill(0);
+  // On color change: update LEDs *and* chart colors
+  c1.onchange = ()=> {
+    const col = c1.value.substring(1);
+    fetch('/color1?value=' + col);
+    chart.data.datasets[0].borderColor = c1.value;
+    chart.update();
+  };
+  c2.onchange = ()=> {
+    const col = c2.value.substring(1);
+    fetch('/color2?value=' + col);
+    chart.data.datasets[1].borderColor = c2.value;
+    chart.update();
+  };
 
-  const chart = new Chart(ctx, {
-    type:'line',
-    data:{
-      labels,
-      datasets:[
-        {label:'Fan 1 RPM', data:data1, borderColor:'#00ff41', fill:false},
-        {label:'Fan 2 RPM', data:data2, borderColor:'#00e038', fill:false},
-      ]
-    },
-    options:{
-      animation:false,
-      scales:{ x:{display:false}, y:{beginAtZero:true} }
-    }
-  });
-
+  // RPM polling
   setInterval(()=>{
     const now = new Date().toLocaleTimeString();
     Promise.all([
@@ -220,6 +259,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   }, 1000);
 });
 </script>
+
 </body></html>
 )rawliteral";
 
